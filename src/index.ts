@@ -1,3 +1,4 @@
+// Class for inputs to models
 class ModelImput {
     imput: any;
 
@@ -6,6 +7,7 @@ class ModelImput {
     }
 }
 
+// Class for outpus from models
 class ModelOutput {
     output: any;
 
@@ -14,18 +16,22 @@ class ModelOutput {
     }
 }
 
+// Class for text prediction
 class TextPredictionModel {
-    constructor() {
-        
-    }
-
+    // Method for predicting a word based on all words before it
     predict(imput: ModelImput) {
-        return new ModelOutput(this.predictFromBephenTokenized(BephenTokenizer.tokenize(imput.imput)));
+        // Return the ModelOutput object
+        return new ModelOutput(this.predictFromBephenTokenized(new BephenTokenizer().tokenize(imput.imput)));
     }
 
+    // Method for predicting a word based on all tokens before it
     predictFromBephenTokenized(imput: string[]) {
+        // Define a string[][] for storing all words and the tokens in them
         let inputTokenized: string[][] = [];
+
+        // Foreach loop to loop through all words
         imput.forEach((element, index) => {
+            // For loop to loop through all tokens in a word
             for (let i: any; i < element.length; i++) {
                 let token: string = element.charAt(i) + element.charAt(i + 1);
                 inputTokenized[index][i] = token;
@@ -34,8 +40,9 @@ class TextPredictionModel {
     }
 }
 
+// Class for tokenizing inputs using Bephen
 class BephenTokenizer {
-    static tokenize(imput: any) {
+    tokenize(imput: any) {
         if (typeof imput === 'string') {
             let splitImput = imput.split(' ');
             let tokenizedSplitImput: string[] = [];
@@ -51,6 +58,7 @@ class BephenTokenizer {
     }
 }
 
+// Class for tokenization type errors
 class TokenizerTypeError extends Error {
     constructor(message: string) {
         super(message);
