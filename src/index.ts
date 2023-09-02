@@ -37,6 +37,8 @@ class TextPredictionModel {
                 inputTokenized[index][i] = token;
             }
         });
+
+        // Use AI to return a tokenized word based on all other tokenized words
     }
 }
 
