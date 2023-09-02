@@ -1,0 +1,25 @@
+{
+  "name": "easyai",
+  "version": "0.0.1",
+  "description": "A package for AI.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fifly-llc/easyai.git"
+  },
+  "keywords": [
+    "easyai"
+  ],
+  "author": "FiFly LLC",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/fifly-llc/easyai/issues"
+  },
+  "homepage": "https://github.com/fifly-llc/easyai#readme",
+  "dependencies": {
+    "fs": "^0.0.1-security"
+  }
+}
