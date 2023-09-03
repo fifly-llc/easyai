@@ -1,13 +1,15 @@
-// Class for inputs to models
-class ModelImput {
-    imput: any;
+const tf = require('@tensorflow/tfjs-node');
 
-    constructor(imput: any) {
-        this.imput = imput;
+// Class for inputs to models
+class ModelInput {
+    input: any;
+
+    constructor(input: any) {
+        this.input = input;
     }
 }
 
-// Class for outpus from models
+// Class for outputs from models
 class ModelOutput {
     output: any;
 
@@ -16,54 +18,156 @@ class ModelOutput {
     }
 }
 
-// Class for text prediction
-class TextPredictionModel {
-    // Method for predicting a word based on all words before it
-    predict(imput: ModelImput) {
-        // Return the ModelOutput object
-        return new ModelOutput(this.predictFromBephenTokenized(new BephenTokenizer().tokenize(imput.imput)));
+// Class for predicting text
+class TextPredictor {
+    model: TextPredictionModel;
+
+    constructor(model: TextPredictionModel) {
+        this.model = model;
     }
 
     // Method for predicting a word based on all tokens before it
-    predictFromBephenTokenized(imput: string[]) {
-        // Define a string[][] for storing all words and the tokens in them
-        let inputTokenized: string[][] = [];
+    async predict(input: ModelInput) {
+        // Tokenize the input
+        const inputTokens = new BephenTokenizer().tokenize(input.input);
 
-        // Foreach loop to loop through all words
-        imput.forEach((element, index) => {
-            // For loop to loop through all tokens in a word
-            for (let i: any; i < element.length; i++) {
-                let token: string = element.charAt(i) + element.charAt(i + 1);
-                inputTokenized[index][i] = token;
-            }
-        });
+        // Convert tokens to tensors
+        const inputTensor = tf.tensor2d([inputTokens.map(token => parseFloat(token))]);
 
-        // Use AI to return a tokenized word based on all other tokenized words
+        // Predict using the model
+        const outputTensor = this.model.predict(inputTensor);
+
+        // Convert output tensor to tokens
+        const predictedTokens = Array.from(outputTensor.dataSync()).map(token => token.toFixed(0));
+
+        // Untokenize and return the predicted word
+        const predictedWord = new BephenTokenizer().untokenize(predictedTokens);
+
+        return predictedWord;
     }
 }
 
-// Class for tokenizing inputs using Bephen
-class BephenTokenizer {
-    tokenize(imput: any) {
-        if (typeof imput === 'string') {
-            let splitImput = imput.split(' ');
-            let tokenizedSplitImput: string[] = [];
+// Class for text datasets
+class TextDataset {
+    data: string = '';
 
-            splitImput.forEach((element, index) => {
-                tokenizedSplitImput[index] = element.replace('a', '00').replace('b', '01').replace('c', '02').replace('d', '03').replace('e', '04').replace('f', '05').replace('g', '06').replace('h', '07').replace('i', '08').replace('j', '09').replace('k', '10').replace('l', '11').replace('m', '12').replace('n', '13').replace('o', '14').replace('p', '15').replace('q', '16').replace('r', '17').replace('s', '18').replace('t', '19').replace('u', '20').replace('v', '21').replace('w', '22').replace('x', '23').replace('y', '24').replace('z', '25').replace('0', '26').replace('1', '27').replace('2', '28').replace('3', '29').replace('4', '30').replace('5', '31').replace('6', '32').replace('7', '33').replace('8', '34').replace('9', '35');
-            });
-
-            return tokenizedSplitImput;
-        } else {
-            throw new TokenizerTypeError("Invalid type passed for tokenization.");
+    // Method for loading data to the dataset
+    load(type: string, content: string) {
+        if (type === 'plaintext') {
+            this.data = content;
         }
     }
 }
 
-// Class for tokenization type errors
-class TokenizerTypeError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "TokenizerTypeError";
+// Class for text prediction
+class TextPredictionModel {
+    model: tf.LayersModel;
+
+    constructor() {
+        // Create a simple RNN model
+        this.model = tf.sequential();
+        this.model.add(tf.layers.simpleRNN({ units: 128, inputShape: [null, 1], returnSequences: true }));
+        this.model.add(tf.layers.dense({ units: 66, activation: 'softmax' }));
+        this.model.compile({ loss: 'categoricalCrossentropy', optimizer: 'adam' });
+    }
+
+    // Method for getting the predictor for the model
+    createPredictor() {
+        return new TextPredictor(this);
+    }
+
+    // Method for training a model
+    async train(dataset: TextDataset) {
+        let data = dataset.data;
+
+        // Tokenize the data
+        const tokenizedData = new BephenTokenizer().tokenize(data);
+
+        // Create sequences for training (sliding windows)
+        const sequenceLength = 10;
+        const sequences = [];
+        for (let i = 0; i < tokenizedData.length - sequenceLength; i++) {
+            sequences.push(tokenizedData.slice(i, i + sequenceLength));
+        }
+
+        // Prepare training data and labels
+        const xData = sequences.slice(0, -1);
+        const yData = sequences.slice(1);
+
+        const x = tf.tensor(xData.map(seq => seq.map(token => parseFloat(token))));
+        const y = tf.tensor(yData.map(seq => seq.map(token => parseFloat(token))));
+
+        // Train the model
+        await this.model.fit(x, y, { epochs: 50, batchSize: 64 });
+    }
+
+    // Predict method for the model
+    predict(inputTensor: tf.Tensor): tf.Tensor {
+        return this.model.predict(inputTensor);
     }
 }
+
+// Class for tokenization
+class BephenTokenizer {
+    // Method to tokenize a string into an array of tokens
+    tokenize(input: string): string[] {
+        // Define a mapping of characters to tokens for printable ASCII characters
+        const characterToToken: { [key: string]: string } = {};
+
+        // Define the printable ASCII characters range (32 to 126)
+        const tokenCount = 126 - 32 + 1;
+
+        for (let i = 32; i <= 126; i++) {
+            const char = String.fromCharCode(i);
+            characterToToken[char] = (i - 32).toString().padStart(2, '0');
+        }
+
+        // Split the input string into individual characters
+        const characters = input.split('');
+
+        // Initialize an array to store the tokens
+        const tokens: string[] = [];
+
+        // Loop through each character and add its corresponding token
+        for (const char of characters) {
+            const token = characterToToken[char] || ''; // Use an empty string for unknown characters
+            tokens.push(token);
+        }
+
+        return tokens;
+    }
+
+    // Method to untokenize an array of tokens into a string
+    untokenize(tokens: string[]): string {
+        // Define the reverse mapping of tokens to characters for printable ASCII characters
+        const tokenToCharacter: { [key: string]: string } = {};
+
+        // Define the printable ASCII characters range (32 to 126)
+        const tokenCount = 126 - 32 + 1;
+
+        for (let i = 32; i <= 126; i++) {
+            const char = String.fromCharCode(i);
+            tokenToCharacter[(i - 32).toString().padStart(2, '0')] = char;
+        }
+
+        // Map tokens back to characters and join them to form a string
+        const output = tokens.map(token => tokenToCharacter[token] || '').join('');
+
+        return output;
+    }
+}
+
+// Usage example
+const dataset = new TextDataset();
+dataset.load('plaintext', 'This is a sample text dataset.');
+
+const model = new TextPredictionModel();
+
+// Train the model
+model.train(dataset).then(async () => {
+    const predictor = model.createPredictor();
+    const input = new ModelInput('Predict the next word based on this text.');
+    const prediction = await predictor.predict(input);
+
+    console.log('Predicted Word:', prediction);
+});
